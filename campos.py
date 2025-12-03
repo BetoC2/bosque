@@ -19,11 +19,12 @@ class Campos(str, Enum):
     HORA = "Hora"
     
     # Taxonomía
-    ESPECIE_GENERO_FAMILIA = "Especie_Genero_Familia"
+    ESPECIE_GENERO_FAMILIA = "Clasificacion"
     HABITO = "Habito"
     
     # Métricas
     NUM_FLORES = "Num_Flores"
+    NUM_ARBUSTOS = "Num_Arbustos"
     AREA_M2 = "Area_m2"
     
     # Calculados

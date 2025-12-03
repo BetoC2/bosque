@@ -10,47 +10,53 @@ sys.path.append(str(Path(__file__).parent.parent))
 from campos import Campos
 
 class CamposOriginales(str, Enum):
-    """Nombres de las columnas del archivo Excel original (beto.xlsx)."""
+    """Nombres de las columnas del archivo Excel original (carlos.xlsx)."""
     
-    CODIGO = "Código"
+    CODIGO = "Codigo"
     NUM_FOTOS = "Num_fotos"
-    DESCRIPCION_HERB = "Descripción_herb"
+    DESCRIPCION_HERB = "Descripcion_herb"
     NUM_FLORES = "Num_flores"
-    NUM_ESPECIES_HERBACEAS = "Num especies herbaceas"
-    DESCRIPCION_ARBUSTOS = "Descripción_arbustos"
+    NUM_ESPECIES_HERBACEAS = "Num_especies_herbaceas"
+    DESCRIPCION_ARBUSTOS = "Descripcion_arbustos"
     NUM_ARBUSTOS = "Num_arbustos"
-    NUM_ESPECIES_ARBUSTOS = "Num especies arbustos"
-    FECHA = "Fecha"
-    HORA = "Hora"
+    NUM_ESPECIES_ARBUSTOS = "Num_especies_arbustos"
 
 
 # 1. Cargar el archivo Excel
-df = pd.read_excel('beto.xlsx')
+df = pd.read_excel('carlos.xlsx')
 
-# 2. Rellenar los metadatos hacia abajo (Técnica "Fill Down")
-# Esto soluciona que U5R3 solo aparezca en la primera fila
-df[CamposOriginales.CODIGO] = df[CamposOriginales.CODIGO].ffill()
-df[CamposOriginales.FECHA] = df[CamposOriginales.FECHA].ffill()
-df[CamposOriginales.HORA] = df[CamposOriginales.HORA].ffill()
+# 2. Eliminar filas completamente vacías
+df = df.dropna(how='all')
 
 # 3. Lista para guardar los datos limpios
 datos_limpios = []
 
 # 4. Procesar fila por fila
 for index, row in df.iterrows():
+    # Saltar filas sin código
+    if pd.isna(row[CamposOriginales.CODIGO]):
+        continue
+        
     # Datos generales del sitio
-    sitio_id = row[CamposOriginales.CODIGO]
-    unidad = sitio_id.split('R')[0] # Extrae "U5" de "U5R3" o "U12" de "U12R3"
-    fecha = row[CamposOriginales.FECHA]
-    hora = row[CamposOriginales.HORA]
-    area = 4 # Valor fijo según tu descripción
+    codigo_completo = row[CamposOriginales.CODIGO]
     
-    # Manejo de flores (si está vacío es 0)
+    # Extraer sitio_id (hasta antes del guion, ej: U1R7-1 -> U1R7)
+    sitio_id = codigo_completo.split('-')[0] if '-' in codigo_completo else codigo_completo
+    
+    # Extraer unidad (ej: U1R7 -> U1)
+    unidad = sitio_id.split('R')[0]
+    
+    # Carlos no tiene fecha/hora en sus datos, usar None
+    fecha = None
+    hora = None
+    area = 1  # 1 metro cuadrado para datos con guion
+    
+    # Manejo de flores
     flores = row[CamposOriginales.NUM_FLORES] if pd.notna(row[CamposOriginales.NUM_FLORES]) else 0
     
     # A. Revisar si hay Herbácea en esta fila
     herbacea = row[CamposOriginales.DESCRIPCION_HERB]
-    if pd.notna(herbacea):
+    if pd.notna(herbacea) and str(herbacea).strip() != '':
         datos_limpios.append({
             Campos.UNIDAD.value: unidad,
             Campos.SITIO_ID.value: sitio_id,
@@ -66,9 +72,7 @@ for index, row in df.iterrows():
     # B. Revisar si hay Arbusto en esta fila
     arbusto = row[CamposOriginales.DESCRIPCION_ARBUSTOS]
     num_arbustos = row[CamposOriginales.NUM_ARBUSTOS] if pd.notna(row[CamposOriginales.NUM_ARBUSTOS]) else 0
-    if pd.notna(arbusto):
-        # Nota: Asumimos que si hay arbusto y herbácea en la misma fila, 
-        # las flores pertenecen al registro principal. Si están separadas, mejor.
+    if pd.notna(arbusto) and str(arbusto).strip() != '':
         datos_limpios.append({
             Campos.UNIDAD.value: unidad,
             Campos.SITIO_ID.value: sitio_id,
@@ -76,7 +80,7 @@ for index, row in df.iterrows():
             Campos.HORA.value: hora,
             Campos.ESPECIE_GENERO_FAMILIA.value: arbusto,
             Campos.HABITO.value: 'Arbusto',
-            Campos.NUM_FLORES.value: flores, # Asignamos las flores de la fila
+            Campos.NUM_FLORES.value: flores,
             Campos.NUM_ARBUSTOS.value: num_arbustos,
             Campos.AREA_M2.value: area
         })
